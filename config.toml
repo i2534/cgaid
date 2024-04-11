@@ -1,0 +1,64 @@
+# 游戏配置
+[game]
+# 游戏根目录
+path = "E:\\Funny\\CrossGate\\Main"
+
+# 在控制台输出信息
+[notifier.simple]
+
+# 播放音频
+[notifier.ringtone]
+# 音频文件路径, 空则播放默认音频
+audio = ""
+# 播放设备, 空则使用默认设备, 不用全名, 只需要设备名中包含的部分
+device = ""
+
+# 发送钉钉消息
+# 设置方式: https://open.dingtalk.com/document/robots/custom-robot-access
+[notifier.dingtalk]
+# 钉钉机器人 webhook
+webhook = "https://oapi.dingtalk.com/robot/send?access_token=XXXXXXXXXXXXXXX"
+# 消息模板, 现在只支持 自定义关键词 的 文本 消息; 这里示例的自定义关键词为: Notice
+template = "Notice: {message}"
+
+# 执行命令
+# 关机配置, 60秒后强制关机, 取消关机只能使用在命令行里执行: shutdown /a , 别的任何办法都无法阻止关机
+# 自定修改为其他配置
+[notifier.invoke]
+# 要执行的命令的路径
+path = "cmd"
+# 命令参数
+args = ["/C", "shutdown /s /f /t 60"]
+# 工作目录, 空则使用本程序根目录
+workdir = ""
+
+# 监控配置 1
+# 迷宫即将刷新
+[[trigger]]
+# 正则表达式, 匹配到的消息将会被通知, 按行匹配, 只匹配正文消息, 如: 15:27:24丂注销回到传送点。 只会匹配 "注销回到传送点。"
+regex = "你感觉到一股不可思议的力量，而『(\\w+)』好像快消失了。"
+# 通知消息格式, {1}, {2} ... 为匹配到的捕获组, {time} 为日志中的时间
+format = "{time}. {1} 即将刷新"
+# 使用上面定义的触发器
+notifier = ["simple", "ringtone", "dingtalk"]
+
+# 监控配置 2
+# 队员离开队伍
+[[trigger]]
+regex = "(\\w+)离开了队伍。"
+format = "{time}. {1} 掉线了"
+notifier = ["dingtalk"]
+
+# 监控配置 3
+# 队长解散队伍
+[[trigger]]
+regex = "队伍已经解散了。"
+format = "{time}. 队长掉线了"
+notifier = ["dingtalk"]
+
+# 监控配置 4
+# 点卡信息
+[[trigger]]
+regex = "您账号剩余时间为(\\w+)"
+format = "{time}. 点卡剩余: {1}"
+notifier = ["dingtalk"]

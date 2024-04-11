@@ -1,0 +1,29 @@
+[package]
+name = "cgaid"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# watching for file changes
+notify = "^6.1"
+# for log
+log = "^0.4"
+simplelog = "^0.12"
+# encoding for gbk
+encoding_rs = "^0.8"
+encoding_rs_io = "^0.1"
+# for time format
+chrono = "^0.4"
+# for play music
+cpal = "^0.15.3"
+rodio = "^0.17"
+# for config
+toml = "^0.8"
+serde = { version = "^1.0", features = ["derive"] }
+# regex
+regex = "^1.10.4"
+# for http request
+reqwest = { version = "^0.12", features = ["json"] }
+tokio = { version = "^1", features = ["full"] }
