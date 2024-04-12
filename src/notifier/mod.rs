@@ -1,9 +1,9 @@
+use colored::{Color, Colorize};
 use cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{Decoder, OutputStream, Sink};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek};
-
 pub mod webhook;
 
 pub struct Simple {}
@@ -16,7 +16,40 @@ impl Simple {
 
 impl super::Notifiable for Simple {
     fn notify(&self, message: &str) -> Result<bool, Box<dyn Error>> {
-        log::info!("Simple notify: {}", message);
+        log::info!("{message}",);
+        Ok(true)
+    }
+}
+
+pub struct Console {
+    color: Option<Color>,
+    format: String,
+    by_log: bool,
+}
+impl Console {
+    pub fn new(color: String, format: String, by_log: bool) -> Self {
+        let color = color.parse().ok();
+        Self {
+            color,
+            format,
+            by_log,
+        }
+    }
+}
+
+impl super::Notifiable for Console {
+    fn notify(&self, message: &str) -> Result<bool, Box<dyn Error>> {
+        let msg = self.format.replace("{message}", message);
+        let cm = if let Some(c) = self.color {
+            msg.color(c).to_string()
+        } else {
+            msg
+        };
+        if self.by_log {
+            log::info!("{cm}");
+        } else {
+            println!("{cm}");
+        }
         Ok(true)
     }
 }
@@ -147,6 +180,50 @@ mod tests {
 
     use super::super::Notifiable;
     use super::*;
+
+    fn init() {
+        simplelog::SimpleLogger::init(log::LevelFilter::Debug, simplelog::Config::default())
+            .unwrap();
+    }
+
+    #[test]
+    fn test_simple() {
+        init();
+
+        let simple = Simple::new();
+        let ret = simple.notify("Hello, World!").unwrap();
+        assert!(ret);
+    }
+
+    #[test]
+    fn test_console() {
+        init();
+
+        let colors = vec![
+            "black",
+            "red",
+            "green",
+            "yellow",
+            "blue",
+            "magenta",
+            "cyan",
+            "white",
+            "bright black",
+            "bright red",
+            "bright green",
+            "bright yellow",
+            "bright blue",
+            "bright magenta",
+            "bright cyan",
+            "bright white",
+        ];
+        for color in colors {
+            let name = color.to_owned();
+            let console = Console::new(name.clone(), "{message}".to_owned(), false);
+            let ret = console.notify(&name).unwrap();
+            assert!(ret);
+        }
+    }
 
     #[test]
     fn test_music_mp3() {

@@ -1,7 +1,7 @@
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use notify::{Config as NC, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
-use simplelog::{Config as SLC, SimpleLogger};
+use simplelog::{ConfigBuilder, SimpleLogger};
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fs::{self, File};
@@ -16,7 +16,7 @@ use std::{cmp, env};
 mod chat;
 mod config;
 mod notifier;
-use chat::record::{Channel, Record};
+use chat::record::Record;
 use config::Config as CC;
 
 pub trait Notifiable {
@@ -24,10 +24,12 @@ pub trait Notifiable {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    SimpleLogger::init(log::LevelFilter::Info, SLC::default())?;
+    let mut lcb = ConfigBuilder::new();
+    let _ = lcb.set_time_offset_to_local();
+    SimpleLogger::init(log::LevelFilter::Info, lcb.build())?;
 
     let work_dir = env::current_dir()?;
-    log::info!("Work dir: {work_dir:?}");
+    log::info!("Work dir: {}", work_dir.display());
 
     let cfg = CC::load(work_dir.join("config.toml"))?;
     log::debug!("Config: {cfg:?}");
@@ -38,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let game_path = Path::new(game_dir);
     let log_dir = game_path.join("Log");
     if !log_dir.exists() {
-        log::info!("Log dir not exists: {log_dir:?}");
+        log::info!("Log dir not exists: {}", log_dir.display());
         fs::create_dir_all(&log_dir)?;
     }
 
@@ -62,6 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let empty = PathBuf::new();
     let ac = Arc::new(cfg);
+    let mut last_record = None;
     for r in rx {
         match r {
             Ok(event) => {
@@ -83,7 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             let (lines, p) = read(Path::new(f), offset)?;
                             log::debug!("{} -> {}", offset, p);
                             offset = p;
-                            try_notify(Arc::clone(&ac), lines);
+                            last_record = try_notify(Arc::clone(&ac), last_record, lines);
                         } else {
                             log::info!("Chat file not found");
                         }
@@ -138,37 +141,44 @@ fn read(path: &Path, offset: u64) -> io::Result<(Vec<String>, u64)> {
     Ok((lines, p))
 }
 
-fn try_notify(cfg: Arc<CC>, lines: Vec<String>) {
+fn try_notify(cfg: Arc<CC>, last: Option<Record>, lines: Vec<String>) -> Option<Record> {
     let records: BTreeSet<_> = lines.iter().filter_map(|v| Record::from(v)).collect();
+    if records.is_empty() {
+        return last;
+    }
     // log::info!("{:?}", records.len());
     let triggers = cfg.as_ref().clone().trigger;
-    for record in records {
-        // println!("{:?}", r);
-        if record.is_channel(Channel::Common) {
-            let msg = record.msg();
-            for trigger in &triggers {
-                let nc = trigger.clone();
-                if let Some(matched) = nc.try_match(msg) {
-                    let message = nc.format(&matched).replace("{time}", &record.fmt_time());
-                    log::info!("Matched: {message}");
-                    for name in nc.notifier {
-                        let cc = Arc::clone(&cfg);
-                        let mc = message.clone();
-                        thread::spawn(move || {
-                            match config::Notifier::find(cc.as_ref(), &name)
-                                .and_then(|o| o.notify(&mc))
-                            {
-                                Ok(b) => {
-                                    log::info!("{name} notified: {b}");
-                                }
-                                Err(e) => {
-                                    log::error!("Notify error: {e}");
-                                }
+    for record in &records {
+        if last.as_ref().is_some_and(|r| r == record) {
+            continue;
+        }
+        // println!("{:?}", record);
+        let msg = record.msg();
+        for trigger in &triggers {
+            if !trigger.accept(record.get_channel()) {
+                continue;
+            }
+            let nc = trigger.clone();
+            if let Some(matched) = nc.try_match(msg) {
+                let message = nc.format(&matched).replace("{time}", &record.fmt_time());
+                log::debug!("Matched: {message}");
+                for name in nc.notifier {
+                    let cc = Arc::clone(&cfg);
+                    let mc = message.clone();
+                    thread::spawn(move || {
+                        match config::Notifier::find(cc.as_ref(), &name).and_then(|o| o.notify(&mc))
+                        {
+                            Ok(b) => {
+                                log::debug!("{name} notified: {b}");
                             }
-                        });
-                    }
+                            Err(e) => {
+                                log::error!("Notify error: {e}");
+                            }
+                        }
+                    });
                 }
             }
         }
     }
+    records.last().cloned()
 }

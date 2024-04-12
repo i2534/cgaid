@@ -1,10 +1,19 @@
 # 游戏配置
 [game]
 # 游戏根目录
-path = "E:\\Funny\\CrossGate\\Main"
+path = "C:\\Users\\lan\\Documents\\Game\\CrossGate\\HuaiJiu"
 
 # 在控制台输出信息
 [notifier.simple]
+
+# 在控制台输出信息高级版
+[notifier.console]
+# 信息颜色, 为空不加颜色, 可选值: black, red, green, yellow, blue, magenta, cyan, white, and bright xxx, xxx is black, red ...
+color = ""
+# 信息格式
+format = "{message}"
+# 是否使用 log 工具输出, 否则使用 println 输出
+by_log = true
 
 # 播放音频
 [notifier.ringtone]
@@ -17,7 +26,7 @@ device = ""
 # 设置方式: https://open.dingtalk.com/document/robots/custom-robot-access
 [notifier.dingtalk]
 # 钉钉机器人 webhook
-webhook = "https://oapi.dingtalk.com/robot/send?access_token=XXXXXXXXXXXXXXX"
+webhook = "https://oapi.dingtalk.com/robot/send?access_token="
 # 消息模板, 现在只支持 自定义关键词 的 文本 消息; 这里示例的自定义关键词为: Notice
 template = "Notice: {message}"
 
@@ -32,6 +41,14 @@ args = ["/C", "shutdown /s /f /t 60"]
 # 工作目录, 空则使用本程序根目录
 workdir = ""
 
+# 监控配置 0
+# 日志输出
+[[trigger]]
+regex = ".+"
+format = "{0}"
+channel = "*"
+notifier = ["console"]
+
 # 监控配置 1
 # 迷宫即将刷新
 [[trigger]]
@@ -39,14 +56,17 @@ workdir = ""
 regex = "你感觉到一股不可思议的力量，而『(\\w+)』好像快消失了。"
 # 通知消息格式, {1}, {2} ... 为匹配到的捕获组, {time} 为日志中的时间
 format = "{time}. {1} 即将刷新"
+# 匹配的频道, * 为所有频道, world 为世界频道, group 为队伍频道, region 为地图频道, common 为一般频道(系统提示, 单人说话)
+channel = "common"
 # 使用上面定义的触发器
-notifier = ["simple", "ringtone", "dingtalk"]
+notifier = ["ringtone", "dingtalk"]
 
 # 监控配置 2
 # 队员离开队伍
 [[trigger]]
 regex = "(\\w+)离开了队伍。"
 format = "{time}. {1} 掉线了"
+channel = "common"
 notifier = ["dingtalk"]
 
 # 监控配置 3
@@ -54,6 +74,7 @@ notifier = ["dingtalk"]
 [[trigger]]
 regex = "队伍已经解散了。"
 format = "{time}. 队长掉线了"
+channel = "common"
 notifier = ["dingtalk"]
 
 # 监控配置 4
@@ -61,4 +82,5 @@ notifier = ["dingtalk"]
 [[trigger]]
 regex = "您账号剩余时间为(\\w+)"
 format = "{time}. 点卡剩余: {1}"
+channel = "common"
 notifier = ["dingtalk"]

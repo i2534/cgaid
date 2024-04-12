@@ -1,3 +1,4 @@
+use super::chat::record::Channel;
 use regex::Regex;
 use serde::Deserialize;
 use std::fs::File;
@@ -11,6 +12,13 @@ pub struct Game {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Simple {}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Console {
+    pub color: String,
+    pub format: String,
+    pub by_log: bool,
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Ringtone {
@@ -34,6 +42,7 @@ pub struct Invoke {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Notifier {
     pub simple: Simple,
+    pub console: Console,
     pub ringtone: Ringtone,
     pub dingtalk: Dingtalk,
     pub invoke: Invoke,
@@ -43,6 +52,7 @@ pub struct Notifier {
 pub struct Trigger {
     pub regex: String,
     pub format: String,
+    pub channel: String,
     pub notifier: Vec<String>,
 }
 
@@ -60,6 +70,14 @@ impl Notifier {
     ) -> Result<Box<dyn super::Notifiable>, Box<dyn std::error::Error>> {
         match name {
             "simple" => Ok(Box::new(super::notifier::Simple::new())),
+            "console" => {
+                let cc = &cfg.notifier.console;
+                Ok(Box::new(super::notifier::Console::new(
+                    cc.color.clone(),
+                    cc.format.clone(),
+                    cc.by_log,
+                )))
+            }
             "ringtone" => {
                 let rc = &cfg.notifier.ringtone;
                 let o = super::notifier::Ringtone::new(rc.audio.clone(), rc.device.clone())?;
@@ -91,6 +109,7 @@ impl Trigger {
         Self {
             regex: regex.to_owned(),
             format: String::new(),
+            channel: String::new(),
             notifier: Vec::new(),
         }
     }
@@ -116,6 +135,16 @@ impl Trigger {
             fmt = fmt.replace(&format!("{{{}}}", i), m);
         }
         fmt
+    }
+
+    pub fn accept(&self, channel: &Channel) -> bool {
+        match self.channel.to_lowercase().as_str() {
+            "world" => channel == &Channel::World,
+            "group" => channel == &Channel::Group,
+            "region" => channel == &Channel::Region,
+            "common" => channel == &Channel::Common,
+            _ => true,
+        }
     }
 }
 

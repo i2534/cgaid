@@ -2,7 +2,7 @@ use chrono::NaiveTime;
 use core::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone)]
 pub enum Channel {
     World,
     Region,
@@ -32,7 +32,7 @@ impl FromStr for Channel {
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone)]
 pub struct Record {
     time: NaiveTime,
     channel: Channel,
@@ -70,6 +70,10 @@ impl Record {
     pub fn fmt_time(&self) -> String {
         self.time.format(Record::TIME_FORMAT).to_string().to_owned()
     }
+    pub fn get_channel(&self) -> &Channel {
+        &self.channel
+    }
+    #[allow(dead_code)]
     pub fn is_channel(&self, channel: Channel) -> bool {
         self.channel == channel
     }
@@ -93,5 +97,60 @@ impl PartialOrd for Record {
 impl Ord for Record {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.time.cmp(&other.time)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_record() {
+        let line = "12:34:56丂[世界] 你好";
+        let record = Record::from(line).unwrap();
+        assert_eq!(record.time, NaiveTime::from_hms(12, 34, 56));
+        assert_eq!(record.channel, Channel::World);
+        assert_eq!(record.message, "你好");
+
+        let line = "12:34:56丂[地图] 你好";
+        let record = Record::from(line).unwrap();
+        assert_eq!(record.time, NaiveTime::from_hms(12, 34, 56));
+        assert_eq!(record.channel, Channel::Region);
+        assert_eq!(record.message, "你好");
+
+        let line = "12:34:56丂[GP] 你好";
+        let record = Record::from(line).unwrap();
+        assert_eq!(record.time, NaiveTime::from_hms(12, 34, 56));
+        assert_eq!(record.channel, Channel::Group);
+        assert_eq!(record.message, "你好");
+
+        let line = "12:34:56丂 你好";
+        let record = Record::from(line).unwrap();
+        assert_eq!(record.time, NaiveTime::from_hms(12, 34, 56));
+        assert_eq!(record.channel, Channel::Common);
+        assert_eq!(record.message, "你好");
+    }
+
+    #[test]
+    fn test_record_hash() {
+        let line = "12:34:56丂[世界] 你好";
+        let record = Record::from(line).unwrap();
+        let mut set = std::collections::HashSet::new();
+        set.insert(Record::from(line).unwrap());
+        assert!(set.contains(&record));
+    }
+
+    #[test]
+    fn test_record_btree() {
+        let lines = vec![
+            " 21:40:12丂[世界]盛明兰oO: 半山来个合格车头  大号3带2",
+            " 21:40:12丂[世界]盛明兰oO: 半山来个合格车头  大号3带2",
+            " 21:40:12丂[世界]盛明兰oO: 半山来个合格车头  大号3带2",
+        ];
+        let records: std::collections::BTreeSet<_> =
+            lines.iter().filter_map(|v| Record::from(v)).collect();
+        for r in &records {
+            println!("{:?}", r);
+        }
+        assert_eq!(records.len(), 1);
     }
 }
